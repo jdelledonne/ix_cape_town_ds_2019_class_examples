@@ -57,10 +57,18 @@ sapply(heart, class) #Get class info
 plot(heart) #quick view of our data
 
 #What needs fixing? Fix it!
+# Changed the "sex" column to a factor
+
+#heart$sex <- as.factor(heart$sex)
+heart <- mutate(heart,
+                sex = factor(sex),
+                cp = factor(cp),
+                num = factor(ifelse(num > 0, 1, 0)))
 
 # Makes factor columns more useful
 
 #Extension - Check out descriptive statistics with Skimkr! 
+skim_to_wide(heart)[, c(1:5, 9:11, 13, 15:16)]
 
 ################################################################################
 #### Data Pre Processing  ####
@@ -81,13 +89,15 @@ heart_mat <- predict(dummies_model, newdata = heart)
 heart <- data.frame(heart_mat) #ignore the warning
 
 # See the structure of the new dataset 
-
+skim_to_wide(heart)[, c(1:5, 9:11, 13, 15:16)]
+str(heart)
 
 # Scaling with Caret
 
 # We can chain together a number of operations with the pre process function
 # Checking out the rest of the pre process functions is left as a fun exercise for google :)
-preProcess_scale_model <- preProcess(heart[c('age', 'trestbps','chol')], method=c('center', 'scale'))
+preProcess_scale_model <- preProcess(heart[c('age', 'trestbps','chol')],
+                                     method=c('center', 'scale'))
 heart[c('age', 'trestbps','chol')] <- predict(preProcess_scale_model, newdata = heart[c('age', 'trestbps','chol')])
 
 # Append num back in
@@ -114,6 +124,7 @@ trainData <- heart[trainRowNumbers,]
 testData <- heart[-trainRowNumbers,]
 
 # Easy right! One issue with our process so far - what is it?
+# We should have split our data first and then done preprocessing
 
 ################################################################################
 #### Training a model ####
@@ -162,7 +173,7 @@ trControl <- trainControl(method = "cv", number = 10, verboseIter = TRUE)
 # this function stipulats:
 #     - the method of training: Cross validation (cv) 
 #     - Number of folds: 10
-#     - I our process is going to be chatty: TRUE
+#     - If our process is going to be chatty: TRUE
 
 model_rpart <- train(num ~ ., data=trainData, method='rpart', trControl = trControl)
 # What did verboseIter actually do?
@@ -183,7 +194,8 @@ model_rpart$results
 # Comparing multiple models 
 
 # Train a new classification model of your choice
-new_model <- 
+new_model <- train(num ~ ., data=trainData, method='cforest', trControl = trControl, metric = 'Accuracy')
+new_model$results
 
 #Compare the two models using resamples
 model_comp <- resamples(list(my_new_model = new_model, Rpart = model_rpart))
@@ -195,6 +207,23 @@ summary(model_comp)
 
 # 1. Implement a function to do k-fold cross validation yourself - test it out by training a 
 # linear regression model on the mtcars dataset trying to predict mpg from the other variables
+
+#*************
+# name: my_cv
+# inputs: data_name, method
+# outputs: cross validation results
+# purpose: uses Caret library to do cross validation
+#     takes in data name and method (as a string)
+#*************
+my_cv <- function(data_name,method) {
+  # Generate train control
+  trControl <- trainControl(method = "cv", number = 10, verboseIter = TRUE)
+  # Generate model
+  my_model <- train(num ~ ., data=data_name, method=method, trControl = trControl)
+  # Display results
+  my_model$results
+}
+my_cv(trainData,'cforest')
 
 # 2. Research three classification algorithms that are included in caret and see which is better
 # for predicting species in the iris data set. Make sure to test out different metrics and
